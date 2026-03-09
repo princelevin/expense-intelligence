@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import officeCrypto from 'officecrypto-tool';
 import { sanitizeRow } from '../middleware/sanitizer.js';
 import { logger } from '../utils/logger.js';
+import { AppError } from '../middleware/errorHandler.js';
 
 export interface ExcelParseResult {
   data: Record<string, unknown>[];
@@ -34,21 +35,43 @@ function findHeaderRow(sheet: XLSX.WorkSheet): number {
   return 0;
 }
 
-async function decryptBuffer(buffer: Buffer): Promise<Buffer> {
+async function decryptBuffer(buffer: Buffer, password?: string): Promise<Buffer> {
   try {
-    const decrypted = await officeCrypto.decrypt(buffer, { password: '' });
-    return decrypted as Buffer;
-  } catch {
-    // Not encrypted or decryption failed — return original buffer
+    const isEncrypted = officeCrypto.isEncrypted(buffer);
+    if (!isEncrypted) {
+      return buffer;
+    }
+    
+    const pwd = password ?? '';
+    logger.info('File is encrypted, attempting decryption', { hasPassword: !!password });
+    try {
+      const decrypted = await officeCrypto.decrypt(buffer, { password: pwd });
+      return decrypted as Buffer;
+    } catch {
+      if (password) {
+        throw new AppError(
+          'WRONG_PASSWORD',
+          'Incorrect password. SBI statements typically use your date of birth (DDMMYYYY) as the password.',
+          400,
+        );
+      }
+      throw new AppError(
+        'PASSWORD_REQUIRED',
+        'This file is password-protected. Please enter the password to continue.',
+        400,
+      );
+    }
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    logger.warn('Encryption check skipped', { reason: err instanceof Error ? err.message : 'unknown' });
     return buffer;
   }
 }
 
-export async function parseExcel(buffer: Buffer): Promise<ExcelParseResult> {
+export async function parseExcel(buffer: Buffer, password?: string): Promise<ExcelParseResult> {
   const errors: string[] = [];
 
-  // Attempt decryption (handles password-protected SBI YONO files)
-  const decryptedBuffer = await decryptBuffer(buffer);
+  const decryptedBuffer = await decryptBuffer(buffer, password);
 
   const workbook = XLSX.read(decryptedBuffer, { type: 'buffer', cellDates: true });
 

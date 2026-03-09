@@ -34,16 +34,21 @@ app.post('/api/analyze', upload.single('file'), async (req, res, next) => {
       throw new AppError('NO_FILE', 'No file uploaded. Please select a bank statement file.', 400);
     }
 
-    // 1. Parse file
-    const parseResult = await parseFile(req.file.buffer, req.file.originalname);
-    logger.info('File parsed', { bank: parseResult.bankName, transactions: parseResult.processedRows });
+    // 1. Parse file (with optional password for encrypted Excel files)
+    const password = typeof req.body?.password === 'string' ? req.body.password : undefined;
+    const parseResult = await parseFile(req.file.buffer, req.file.originalname, password);
+    const parseTime = Date.now() - startTime;
+    logger.info('File parsed', { bank: parseResult.bankName, transactions: parseResult.processedRows, parseTimeMs: parseTime });
 
     // 2. Run both categorization engines in parallel
     const llmProvider = createLLMProvider();
+    const catStart = Date.now();
     const [aiResults, ruleResults] = await Promise.all([
       llmProvider.categorize(parseResult.transactions),
       Promise.resolve(parseResult.transactions.map(t => ruleCategorizer.categorize(t))),
     ]);
+    const catTime = Date.now() - catStart;
+    logger.info('Categorization complete', { catTimeMs: catTime });
 
     // 3. Merge results into CategorizedTransaction[]
     const transactions: CategorizedTransaction[] = parseResult.transactions.map((t, i) => ({
@@ -58,7 +63,9 @@ app.post('/api/analyze', upload.single('file'), async (req, res, next) => {
     const summary = aggregateTransactions(transactions);
 
     // 5. Generate insights
+    const insightStart = Date.now();
     const insights = await generateInsights(summary);
+    logger.info('Insights generated', { insightTimeMs: Date.now() - insightStart });
 
     // 6. Build comparison
     const comparison: ComparisonResult = buildComparison(transactions);
@@ -98,6 +105,7 @@ app.post('/api/chat', async (req, res, next) => {
     const systemPrompt = buildChatSystemPrompt(summary, transactions);
 
     const llmProvider = createLLMProvider();
+    logger.info('Chat request', { messageCount: messages.length, promptLength: systemPrompt.length });
     const response = await llmProvider.chat(messages, systemPrompt);
 
     res.json({ response });
@@ -128,6 +136,20 @@ function buildComparison(transactions: CategorizedTransaction[]): ComparisonResu
   };
 }
 
+function truncateDescription(desc: string): string {
+  // SBI UPI descriptions are very long; extract the meaningful part
+  // e.g. "WDL TFR   UPI/DR/.../Zepto/YESB/ZEPTOONLIN/Paym\n ent   009769..." → "UPI Zepto"
+  const upiMatch = desc.match(/UPI\/(?:DR|CR)\/\d+\/([^/]+)/);
+  if (upiMatch) {
+    const prefix = desc.includes('UPI/CR') ? 'UPI-CR' : 'UPI-DR';
+    return `${prefix} ${upiMatch[1]!.trim()}`;
+  }
+  const neftMatch = desc.match(/NEFT\*[^*]*\*[^*]*\*(.+?)(?:\s{2,}|$)/);
+  if (neftMatch) return `NEFT ${neftMatch[1]!.trim()}`;
+  // Fallback: first 40 chars
+  return desc.slice(0, 40).trim();
+}
+
 function buildChatSystemPrompt(
   summary: { totalCredits: number; totalDebits: number; netBalance: number },
   transactions?: CategorizedTransaction[],
@@ -140,10 +162,10 @@ Spending Summary:
 - Net Balance: ₹${summary.netBalance.toLocaleString('en-IN')}`;
 
   if (transactions && transactions.length > 0) {
-    const sampleTxns = transactions.slice(0, 50).map(t =>
-      `${t.date} | ${t.description} | ${t.type} ₹${t.amount} | ${t.aiCategory}`,
+    const sampleTxns = transactions.slice(0, 30).map(t =>
+      `${t.date} | ${truncateDescription(t.description)} | ${t.type} ₹${t.amount} | ${t.aiCategory}`,
     ).join('\n');
-    prompt += `\n\nRecent Transactions (sample):\n${sampleTxns}`;
+    prompt += `\n\nRecent Transactions (sample of ${Math.min(30, transactions.length)} out of ${transactions.length}):\n${sampleTxns}`;
   }
 
   prompt += `\n\nAnswer questions about spending patterns, provide saving tips, and help the user understand their finances. Use ₹ for amounts. Be concise and helpful.`;

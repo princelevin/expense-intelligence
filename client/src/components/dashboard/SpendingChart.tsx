@@ -20,11 +20,22 @@ function formatCurrency(amount: number): string {
 }
 
 export function SpendingChart({ categories }: SpendingChartProps) {
-  const data = categories.map(c => ({
+  // Group small categories (<3%) into "Other"
+  const THRESHOLD = 3;
+  const major = categories.filter(c => c.percentage >= THRESHOLD);
+  const minor = categories.filter(c => c.percentage < THRESHOLD);
+
+  const chartData = major.map(c => ({
     name: c.category,
     value: c.totalAmount,
-    percentage: c.percentage,
   }));
+
+  if (minor.length > 0) {
+    chartData.push({
+      name: 'Other',
+      value: minor.reduce((sum, c) => sum + c.totalAmount, 0),
+    });
+  }
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-6">
@@ -33,16 +44,20 @@ export function SpendingChart({ categories }: SpendingChartProps) {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data}
+              data={chartData}
               cx="50%"
               cy="50%"
               innerRadius={60}
               outerRadius={100}
               paddingAngle={2}
               dataKey="value"
-              label={({ name, percent }) => `${name ?? ''} (${((percent ?? 0) * 100).toFixed(1)}%)`}
+              label={({ name, percent }) => {
+                const p = (percent ?? 0) * 100;
+                if (p < 5) return '';
+                return `${name ?? ''} (${p.toFixed(1)}%)`;
+              }}
             >
-              {data.map((_, index) => (
+              {chartData.map((_, index) => (
                 <Cell key={index} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>

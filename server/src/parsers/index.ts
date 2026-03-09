@@ -16,7 +16,7 @@ export interface ParseResult {
   errors: string[];
 }
 
-export async function parseFile(buffer: Buffer, filename: string): Promise<ParseResult> {
+export async function parseFile(buffer: Buffer, filename: string, password?: string): Promise<ParseResult> {
   const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
 
   let rawData: Record<string, unknown>[];
@@ -29,7 +29,7 @@ export async function parseFile(buffer: Buffer, filename: string): Promise<Parse
     parseErrors = result.errors;
     totalRows = result.totalRows;
   } else if (ext === '.xls' || ext === '.xlsx') {
-    const result = await parseExcel(buffer);
+    const result = await parseExcel(buffer, password);
     rawData = result.data;
     parseErrors = result.errors;
     totalRows = result.totalRows;
@@ -52,6 +52,7 @@ export async function parseFile(buffer: Buffer, filename: string): Promise<Parse
 
   // Detect bank format from headers
   const headers = Object.keys(rawData[0]!);
+  logger.info('Parsed headers and sample data', { headers, firstRow: rawData[0], totalRows: rawData.length });
   const format = detectBankFormat(headers);
 
   if (!format) {

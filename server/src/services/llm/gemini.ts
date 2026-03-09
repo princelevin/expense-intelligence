@@ -5,7 +5,8 @@ import type { SpendingSummary, ChatMessage } from '../../schemas/index.js';
 import { llmBatchResponseSchema, llmInsightResponseSchema } from '../../schemas/llmResponse.js';
 import { logger } from '../../utils/logger.js';
 
-const MAX_BATCH_SIZE = 25;
+const MAX_BATCH_SIZE = 50;
+const MAX_CONCURRENT_BATCHES = 3;
 
 const CATEGORIZATION_PROMPT = `You are a financial transaction categorizer for Indian bank statements.
 
@@ -45,10 +46,22 @@ export class GeminiProvider implements LLMProvider {
       batches.push(transactions.slice(i, i + MAX_BATCH_SIZE));
     }
 
+    logger.info('Starting AI categorization', { transactions: transactions.length, batches: batches.length });
     const allResults: Array<{ category: string; confidence: number; merchant: string }> = [];
 
-    const batchPromises = batches.map(async (batch, index) => {
-      const input = batch.map((t, i) => `${i + 1}. ${t.date} | ${t.description} | ${t.type} | ${t.amount}`).join('\n');
+    // Process batches in chunks to avoid rate limits
+    for (let c = 0; c < batches.length; c += MAX_CONCURRENT_BATCHES) {
+      const chunk = batches.slice(c, c + MAX_CONCURRENT_BATCHES);
+      const chunkPromises = chunk.map(async (batch, idx) => {
+        const batchIndex = c + idx;
+        const input = batch.map((t, i) => {
+          // Truncate long SBI UPI descriptions
+          let desc = t.description;
+          const upiMatch = desc.match(/UPI\/(?:DR|CR)\/\d+\/(.+?)(?:\/[A-Z]{4}\/|$)/);
+          if (upiMatch) desc = `UPI ${upiMatch[1]!.trim()}`;
+          else if (desc.length > 60) desc = desc.slice(0, 60);
+          return `${i + 1}. ${t.date} | ${desc} | ${t.type} | ${t.amount}`;
+        }).join('\n');
 
       try {
         const result = await this.callModel(`${CATEGORIZATION_PROMPT}\n\nTransactions:\n${input}`);
@@ -58,10 +71,10 @@ export class GeminiProvider implements LLMProvider {
           return parsed.data.results;
         }
 
-        logger.warn('LLM response validation failed for batch', { batchIndex: index });
+        logger.warn('LLM response validation failed for batch', { batchIndex });
         return batch.map(() => ({ category: 'Uncategorized', confidence: 0, merchant: 'Unknown' }));
       } catch (error) {
-        logger.warn('LLM batch failed, retrying once', { batchIndex: index });
+        logger.warn('LLM batch failed, retrying once', { batchIndex });
 
         // Retry once
         try {
@@ -76,9 +89,10 @@ export class GeminiProvider implements LLMProvider {
       }
     });
 
-    const batchResults = await Promise.all(batchPromises);
-    for (const results of batchResults) {
-      allResults.push(...results);
+      const chunkResults = await Promise.all(chunkPromises);
+      for (const results of chunkResults) {
+        allResults.push(...results);
+      }
     }
 
     return allResults;
@@ -116,25 +130,30 @@ export class GeminiProvider implements LLMProvider {
   }
 
   async chat(messages: ChatMessage[], systemPrompt: string): Promise<string> {
-    const model = this.genAI.getGenerativeModel({ model: this.modelName });
+    try {
+      const model = this.genAI.getGenerativeModel({
+        model: this.modelName,
+        systemInstruction: { role: 'user', parts: [{ text: systemPrompt }] },
+      });
 
-    const history = messages.slice(0, -1).map(m => ({
-      role: m.role === 'user' ? 'user' as const : 'model' as const,
-      parts: [{ text: m.content }],
-    }));
+      const history = messages.slice(0, -1).map(m => ({
+        role: m.role === 'user' ? 'user' as const : 'model' as const,
+        parts: [{ text: m.content }],
+      }));
 
-    const chat = model.startChat({
-      history,
-      systemInstruction: systemPrompt,
-    });
+      const chat = model.startChat({ history });
 
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage) {
-      return 'No message provided.';
+      const lastMessage = messages[messages.length - 1];
+      if (!lastMessage) {
+        return 'No message provided.';
+      }
+
+      const result = await chat.sendMessage(lastMessage.content);
+      return result.response.text();
+    } catch (error) {
+      logger.error('Gemini chat error', { error: error instanceof Error ? error.message : String(error) });
+      throw error;
     }
-
-    const result = await chat.sendMessage(lastMessage.content);
-    return result.response.text();
   }
 
   private async callModel(prompt: string): Promise<string> {

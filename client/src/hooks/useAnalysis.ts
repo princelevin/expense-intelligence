@@ -32,12 +32,12 @@ function reducer(state: AppState, action: Action): AppState {
 export function useAnalysis() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' });
 
-  const upload = useCallback(async (file: File) => {
+  const upload = useCallback(async (file: File, password?: string) => {
     dispatch({ type: 'START_UPLOAD', fileName: file.name });
     dispatch({ type: 'PROCESSING', message: 'Parsing bank statement...' });
 
     try {
-      const data = await analyzeFile(file);
+      const data = await analyzeFile(file, password);
       dispatch({ type: 'SUCCESS', data });
     } catch (error: unknown) {
       const err = error as { code?: string; message?: string };

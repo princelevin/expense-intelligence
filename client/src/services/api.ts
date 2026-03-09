@@ -2,9 +2,12 @@ import type { AnalysisResult, ChatMessage } from '../types';
 
 const API_BASE = '/api';
 
-export async function analyzeFile(file: File): Promise<AnalysisResult> {
+export async function analyzeFile(file: File, password?: string): Promise<AnalysisResult> {
   const formData = new FormData();
   formData.append('file', file);
+  if (password) {
+    formData.append('password', password);
+  }
 
   const response = await fetch(`${API_BASE}/analyze`, {
     method: 'POST',

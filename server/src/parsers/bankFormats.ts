@@ -18,7 +18,7 @@ const BANK_FORMATS: BankFormat[] = [
   {
     name: 'HDFC',
     dateColumns: ['Date', 'Transaction Date', 'Txn Date'],
-    descriptionColumns: ['Narration', 'Description', 'Particulars', 'Transaction Description'],
+    descriptionColumns: ['Narration', 'Description', 'Particulars', 'Details', 'Transaction Description'],
     debitColumns: ['Withdrawal Amt.', 'Withdrawal Amount', 'Debit', 'Debit Amount', 'Dr'],
     creditColumns: ['Deposit Amt.', 'Deposit Amount', 'Credit', 'Credit Amount', 'Cr'],
     balanceColumns: ['Closing Balance', 'Balance', 'Available Balance'],
@@ -27,31 +27,36 @@ const BANK_FORMATS: BankFormat[] = [
   {
     name: 'SBI',
     dateColumns: ['Txn Date', 'Transaction Date', 'Date', 'Value Date'],
-    descriptionColumns: ['Description', 'Narration', 'Particulars', 'Ref No./Cheque No.'],
+    descriptionColumns: ['Description', 'Details', 'Narration', 'Particulars'],
     debitColumns: ['Debit', 'Withdrawal', 'Dr', 'Debit Amount'],
     creditColumns: ['Credit', 'Deposit', 'Cr', 'Credit Amount'],
     balanceColumns: ['Balance', 'Closing Balance', 'Available Balance'],
-    referenceColumns: ['Ref No./Cheque No.', 'Reference', 'Ref No'],
+    referenceColumns: ['Ref No/Cheque No', 'Ref No./Cheque No.', 'Reference', 'Ref No', 'Chq/Ref No'],
   },
 ];
 
 // 4-pass fuzzy column matching
 function findColumnValue(row: Record<string, unknown>, candidates: string[]): string | undefined {
+  const raw = findColumnRawValue(row, candidates);
+  return raw !== undefined ? String(raw) : undefined;
+}
+
+function findColumnRawValue(row: Record<string, unknown>, candidates: string[]): unknown | undefined {
   const keys = Object.keys(row);
 
   // Pass 1: Exact match (case-insensitive)
   for (const candidate of candidates) {
-    const exactMatch = keys.find(k => k.toLowerCase() === candidate.toLowerCase());
+    const exactMatch = keys.find(k => k.toLowerCase().trim() === candidate.toLowerCase());
     if (exactMatch && row[exactMatch] !== undefined && row[exactMatch] !== '') {
-      return String(row[exactMatch]);
+      return row[exactMatch];
     }
   }
 
   // Pass 2: Contains match
   for (const candidate of candidates) {
-    const containsMatch = keys.find(k => k.toLowerCase().includes(candidate.toLowerCase()));
+    const containsMatch = keys.find(k => k.toLowerCase().includes(candidate.toLowerCase()) || candidate.toLowerCase().includes(k.toLowerCase()));
     if (containsMatch && row[containsMatch] !== undefined && row[containsMatch] !== '') {
-      return String(row[containsMatch]);
+      return row[containsMatch];
     }
   }
 
@@ -61,7 +66,7 @@ function findColumnValue(row: Record<string, unknown>, candidates: string[]): st
     const normalizedCandidate = normalize(candidate);
     const normalizedMatch = keys.find(k => normalize(k) === normalizedCandidate);
     if (normalizedMatch && row[normalizedMatch] !== undefined && row[normalizedMatch] !== '') {
-      return String(row[normalizedMatch]);
+      return row[normalizedMatch];
     }
   }
 
@@ -69,34 +74,62 @@ function findColumnValue(row: Record<string, unknown>, candidates: string[]): st
 }
 
 export function detectBankFormat(headers: string[]): BankFormat | null {
-  const lowerHeaders = headers.map(h => h.toLowerCase());
+  const lowerHeaders = headers.map(h => h.toLowerCase().trim());
+  logger.info('Detecting bank format', { headers: lowerHeaders });
+
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  let bestFormat: BankFormat | null = null;
+  let bestScore = 0;
 
   for (const format of BANK_FORMATS) {
-    const allCandidates = [
-      ...format.dateColumns,
-      ...format.descriptionColumns,
-      ...format.debitColumns,
-      ...format.creditColumns,
-    ];
+    // Count how many actual headers match (not how many candidates match)
+    const headerMatchCount = lowerHeaders.filter(h => {
+      const nh = normalize(h);
+      const allCols = [
+        ...format.dateColumns,
+        ...format.descriptionColumns,
+        ...format.debitColumns,
+        ...format.creditColumns,
+        ...format.balanceColumns,
+      ];
+      return allCols.some(candidate => {
+        const lc = candidate.toLowerCase();
+        const nc = normalize(candidate);
+        return h === lc || nh === nc || h.includes(lc) || lc.includes(h);
+      });
+    }).length;
 
-    const matchCount = allCandidates.filter(candidate =>
-      lowerHeaders.some(h => h.includes(candidate.toLowerCase())),
-    ).length;
+    logger.info('Format match score', { bank: format.name, headerMatchCount });
 
-    if (matchCount >= 3) {
-      logger.info('Detected bank format', { bank: format.name, matchCount });
-      return format;
+    if (headerMatchCount >= 3 && headerMatchCount > bestScore) {
+      bestScore = headerMatchCount;
+      bestFormat = format;
     }
   }
 
-  return null;
+  if (bestFormat) {
+    logger.info('Detected bank format', { bank: bestFormat.name, score: bestScore });
+  } else {
+    logger.warn('No bank format matched', { headers: lowerHeaders });
+  }
+
+  return bestFormat;
 }
 
 export function mapRowToTransaction(row: Record<string, unknown>, format: BankFormat): RawTransaction | null {
-  const dateStr = findColumnValue(row, format.dateColumns);
+  const dateRaw = findColumnRawValue(row, format.dateColumns);
   const description = findColumnValue(row, format.descriptionColumns);
 
-  if (!dateStr || !description) return null;
+  if (!dateRaw || !description) return null;
+
+  // Handle dates: Excel may parse them as Date objects
+  let dateStr: string;
+  if (dateRaw instanceof Date) {
+    dateStr = `${dateRaw.getDate().toString().padStart(2, '0')}/${(dateRaw.getMonth() + 1).toString().padStart(2, '0')}/${dateRaw.getFullYear()}`;
+  } else {
+    dateStr = String(dateRaw);
+  }
 
   const debitStr = findColumnValue(row, format.debitColumns);
   const creditStr = findColumnValue(row, format.creditColumns);
