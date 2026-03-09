@@ -37,26 +37,23 @@ export function DashboardTabs({ data, onReset }: DashboardTabsProps) {
     const filtered = data.transactions.filter(t => t.date.startsWith(selectedMonth));
 
     // Recalculate categories, merchants from filtered data
-    let totalCredits = 0;
     let totalDebits = 0;
     const catMap = new Map<string, { total: number; count: number }>();
     const merchMap = new Map<string, { total: number; count: number; category: string }>();
 
     for (const t of filtered) {
-      if (t.type === 'credit') totalCredits += t.amount;
-      else {
-        totalDebits += t.amount;
-        const cat = catMap.get(t.aiCategory) ?? { total: 0, count: 0 };
-        cat.total += t.amount;
-        cat.count++;
-        catMap.set(t.aiCategory, cat);
+      if (t.type === 'credit') continue;
+      totalDebits += t.amount;
+      const cat = catMap.get(t.aiCategory) ?? { total: 0, count: 0 };
+      cat.total += t.amount;
+      cat.count++;
+      catMap.set(t.aiCategory, cat);
 
-        if (t.merchant !== 'Unknown') {
-          const m = merchMap.get(t.merchant) ?? { total: 0, count: 0, category: t.aiCategory };
-          m.total += t.amount;
-          m.count++;
-          merchMap.set(t.merchant, m);
-        }
+      if (t.merchant !== 'Unknown') {
+        const m = merchMap.get(t.merchant) ?? { total: 0, count: 0, category: t.aiCategory };
+        m.total += t.amount;
+        m.count++;
+        merchMap.set(t.merchant, m);
       }
     }
 
