@@ -17,7 +17,7 @@ const app = express();
 const PORT = parseInt(process.env['PORT'] ?? '3001', 10);
 const CORS_ORIGIN = process.env['CORS_ORIGIN'] ?? 'http://localhost:5173';
 
-app.use(cors({ origin: CORS_ORIGIN }));
+app.use(cors({ origin: CORS_ORIGIN.split(',').map(s => s.trim()) }));
 app.use(express.json({ limit: '1mb' }));
 
 // Health check

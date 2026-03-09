@@ -1,6 +1,8 @@
 import type { AnalysisResult, ChatMessage } from '../types';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api';
 
 export async function analyzeFile(file: File, password?: string): Promise<AnalysisResult> {
   const formData = new FormData();
