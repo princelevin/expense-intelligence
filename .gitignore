@@ -103,6 +103,9 @@ dist
 .svelte-kit/
 
 # vitepress build output
+
+# Interview script (local only)
+docs/interview-script.md
 **/.vitepress/dist
 
 # vitepress cache directory
