@@ -152,8 +152,11 @@ export function mapRowToTransaction(row: Record<string, unknown>, format: BankFo
     return null; // Skip rows with no amount
   }
 
+  const parsedDate = parseIndianDate(dateStr);
+  if (!parsedDate) return null; // Skip rows with unparseable dates
+
   return {
-    date: parseIndianDate(dateStr),
+    date: parsedDate,
     description: description.trim(),
     amount,
     type,

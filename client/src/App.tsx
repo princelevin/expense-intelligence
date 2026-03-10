@@ -13,9 +13,12 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">💰 Expense Intelligence</h1>
-            <p className="text-xs text-gray-500">AI-Powered Bank Statement Analyzer</p>
+          <div className="flex items-center gap-3">
+            <span className="text-3xl leading-none">💰</span>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">Expense Intelligence</h1>
+              <p className="text-xs text-gray-500">AI-Powered Bank Statement Analyzer</p>
+            </div>
           </div>
           {state.status === 'dashboard' && (
             <button

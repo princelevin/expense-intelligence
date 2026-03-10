@@ -24,7 +24,9 @@ export function DashboardTabs({ data, onReset }: DashboardTabsProps) {
   const months = useMemo(() => {
     const monthSet = new Set<string>();
     for (const t of data.transactions) {
+      if (!t.date || t.date.length < 7) continue;
       const month = t.date.slice(0, 7); // YYYY-MM
+      if (!/^\d{4}-\d{2}$/.test(month)) continue;
       monthSet.add(month);
     }
     return Array.from(monthSet).sort().reverse();
