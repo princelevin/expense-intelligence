@@ -11,12 +11,11 @@ import { ChatBox } from './ChatBox';
 
 interface DashboardTabsProps {
   data: AnalysisResult;
-  onReset: () => void;
 }
 
 type Tab = 'overview' | 'statement' | 'comparison';
 
-export function DashboardTabs({ data, onReset }: DashboardTabsProps) {
+export function DashboardTabs({ data }: DashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
@@ -119,29 +118,21 @@ export function DashboardTabs({ data, onReset }: DashboardTabsProps) {
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
-          {months.length > 1 && (
-            <select
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Filter by month"
-            >
-              <option value="all">All Months</option>
-              {months.map(m => (
-                <option key={m} value={m}>
-                  {new Date(m + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
-                </option>
-              ))}
-            </select>
-          )}
-          <button
-            onClick={onReset}
-            className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+        {months.length > 1 && (
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Filter by month"
           >
-            Upload New
-          </button>
-        </div>
+            <option value="all">All Months</option>
+            {months.map(m => (
+              <option key={m} value={m}>
+                {new Date(m + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <SpendingSummary totalCredits={totalCredits} totalDebits={totalDebits} />

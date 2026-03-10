@@ -61,7 +61,7 @@ function App() {
         )}
 
         {state.status === 'dashboard' && (
-          <DashboardTabs data={state.data} onReset={reset} />
+          <DashboardTabs data={state.data} />
         )}
       </main>
 
