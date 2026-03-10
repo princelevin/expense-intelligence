@@ -1,9 +1,16 @@
-import OpenAI from 'openai';
+import OpenAI, { AzureOpenAI } from 'openai';
 import type { LLMProvider } from './types.js';
 import type { RawTransaction } from '../../schemas/transaction.js';
 import type { SpendingSummary, ChatMessage } from '../../schemas/index.js';
 import { llmBatchResponseSchema, llmInsightResponseSchema } from '../../schemas/llmResponse.js';
 import { logger } from '../../utils/logger.js';
+
+export interface AzureOpenAIConfig {
+  endpoint: string;
+  apiKey: string;
+  deploymentName: string;
+  apiVersion?: string | undefined;
+}
 
 const MAX_BATCH_SIZE = 25;
 
@@ -29,9 +36,21 @@ export class OpenAIProvider implements LLMProvider {
   private client: OpenAI;
   private modelName: string;
 
-  constructor(apiKey: string, modelName?: string) {
-    this.client = new OpenAI({ apiKey });
-    this.modelName = modelName ?? 'gpt-4o-mini';
+  constructor(apiKey: string, modelName?: string);
+  constructor(azureConfig: AzureOpenAIConfig);
+  constructor(apiKeyOrConfig: string | AzureOpenAIConfig, modelName?: string) {
+    if (typeof apiKeyOrConfig === 'string') {
+      this.client = new OpenAI({ apiKey: apiKeyOrConfig });
+      this.modelName = modelName ?? 'gpt-4o-mini';
+    } else {
+      this.client = new AzureOpenAI({
+        endpoint: apiKeyOrConfig.endpoint,
+        apiKey: apiKeyOrConfig.apiKey,
+        apiVersion: apiKeyOrConfig.apiVersion ?? '2024-08-01-preview',
+        deployment: apiKeyOrConfig.deploymentName,
+      });
+      this.modelName = apiKeyOrConfig.deploymentName;
+    }
   }
 
   async categorize(transactions: RawTransaction[]): Promise<Array<{ category: string; confidence: number; merchant: string }>> {
