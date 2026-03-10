@@ -159,18 +159,43 @@ function buildChatSystemPrompt(
 Spending Summary:
 - Total Money In (Credits): ₹${summary.totalCredits.toLocaleString('en-IN')}
 - Total Money Out (Debits): ₹${summary.totalDebits.toLocaleString('en-IN')}
-- Net Balance: ₹${summary.netBalance.toLocaleString('en-IN')}`;
+- Net Cash Flow: ₹${summary.netBalance.toLocaleString('en-IN')}`;
 
   if (transactions && transactions.length > 0) {
+    // Build category breakdown from transactions
+    const categoryTotals: Record<string, number> = {};
+    const debitTxns = transactions.filter(t => t.type === 'debit');
+    for (const t of debitTxns) {
+      const cat = t.aiCategory || 'Uncategorized';
+      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + t.amount;
+    }
+    const categoryLines = Object.entries(categoryTotals)
+      .sort(([, a], [, b]) => b - a)
+      .map(([cat, amt]) => `  - ${cat}: ₹${amt.toLocaleString('en-IN')}`)
+      .join('\n');
+
+    if (categoryLines) {
+      prompt += `\n\nSpending by Category (debits only):\n${categoryLines}`;
+    }
+
+    // Date range for accurate per-day calculations
+    const dates = transactions.map(t => t.date).filter(Boolean).sort();
+    if (dates.length >= 2) {
+      prompt += `\n\nStatement Period: ${dates[0]} to ${dates[dates.length - 1]}`;
+    }
+
     const sampleTxns = transactions.slice(0, 30).map(t =>
       `${t.date} | ${truncateDescription(t.description)} | ${t.type} ₹${t.amount} | ${t.aiCategory}`,
     ).join('\n');
     prompt += `\n\nRecent Transactions (sample of ${Math.min(30, transactions.length)} out of ${transactions.length}):\n${sampleTxns}`;
   }
 
-  prompt += `\n\nAnswer questions about spending patterns, provide saving tips, and help the user understand their finances. Use ₹ for amounts. Be concise and helpful.
-
-IMPORTANT: Respond in plain text only. Do NOT use markdown formatting like **bold**, *italic*, or # headings. Use simple dashes (-) for lists and plain text for emphasis.`;
+  prompt += `\n\nRules:
+- Answer questions about spending patterns, provide saving tips, and help the user understand their finances.
+- Use ₹ for amounts. Be concise (2-4 sentences).
+- IMPORTANT: "Total Money Out" includes ALL debits — transfers, rent, EMIs, loan payments, and daily spending. When the user asks about "average spending" or "daily spending," do NOT simply divide total debits by number of days or transactions. Instead, use the category breakdown to distinguish actual discretionary spending (Food, Shopping, Entertainment) from large fixed payments (Transfers, Rent, EMI, Bills). Explain what is included in your calculation.
+- If the user asks about spending on a specific day or date, look at the actual transactions for that date rather than computing averages.
+- Respond in plain text only. Do NOT use markdown formatting like **bold**, *italic*, or # headings. Use simple dashes (-) for lists and plain text for emphasis.`;
 
   return prompt;
 }
