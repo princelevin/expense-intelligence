@@ -118,7 +118,7 @@ export function DashboardTabs({ data }: DashboardTabsProps) {
           ))}
         </div>
 
-        {months.length > 1 && (
+        {months.length >= 1 && (
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(e.target.value)}
