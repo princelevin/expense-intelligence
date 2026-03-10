@@ -15,7 +15,7 @@ function formatCurrency(amount: number): string {
 export function MerchantList({ merchants }: MerchantListProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Merchants</h3>
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Spending</h3>
       {merchants.length === 0 ? (
         <p className="text-gray-500 text-sm">No merchant data available.</p>
       ) : (

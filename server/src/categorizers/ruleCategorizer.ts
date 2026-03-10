@@ -10,24 +10,28 @@ interface CategoryRule {
 const CATEGORY_RULES: CategoryRule[] = [
   {
     category: 'Food & Dining',
-    keywords: ['swiggy', 'zomato', 'restaurant', 'cafe', 'food', 'pizza', 'burger', 'dominos', 'mcdonalds', 'kfc', 'biryani', 'hotel', 'dining', 'eat', 'meal', 'lunch', 'dinner', 'breakfast', 'barbeque'],
+    keywords: ['swiggy', 'zomato', 'restaurant', 'cafe', 'food', 'pizza', 'burger', 'dominos', 'mcdonalds', 'kfc', 'biryani', 'hotel', 'dining', 'eat', 'meal', 'lunch', 'dinner', 'breakfast', 'barbeque', 'hungerbox', 'munchmar', 'zepto', 'blinkit', 'grofers'],
     merchantPatterns: [
       { pattern: /swiggy/i, merchant: 'Swiggy' },
       { pattern: /zomato/i, merchant: 'Zomato' },
       { pattern: /domino/i, merchant: "Domino's" },
       { pattern: /mcdonald/i, merchant: "McDonald's" },
       { pattern: /kfc/i, merchant: 'KFC' },
+      { pattern: /hungerbox/i, merchant: 'HungerBox' },
+      { pattern: /munchmar/i, merchant: 'MunchMar' },
+      { pattern: /zepto/i, merchant: 'Zepto' },
+      { pattern: /blinkit/i, merchant: 'Blinkit' },
     ],
   },
   {
     category: 'Shopping',
-    keywords: ['amazon', 'flipkart', 'myntra', 'ajio', 'shopping', 'mart', 'store', 'retail', 'mall', 'bazaar', 'big basket', 'bigbasket', 'dmart', 'reliance', 'nykaa', 'meesho'],
+    keywords: ['amazon', 'flipkart', 'myntra', 'ajio', 'shopping', 'mart', 'store', 'retail', 'mall', 'bazaar', 'dmart', 'reliance', 'nykaa', 'meesho', 'decathlon'],
     merchantPatterns: [
       { pattern: /amazon/i, merchant: 'Amazon' },
       { pattern: /flipkart/i, merchant: 'Flipkart' },
       { pattern: /myntra/i, merchant: 'Myntra' },
-      { pattern: /bigbasket|big basket/i, merchant: 'BigBasket' },
       { pattern: /dmart/i, merchant: 'DMart' },
+      { pattern: /decathlon/i, merchant: 'Decathlon' },
     ],
   },
   {
@@ -38,6 +42,8 @@ const CATEGORY_RULES: CategoryRule[] = [
       { pattern: /ola/i, merchant: 'Ola' },
       { pattern: /rapido/i, merchant: 'Rapido' },
       { pattern: /irctc/i, merchant: 'IRCTC' },
+      { pattern: /redbus/i, merchant: 'RedBus' },
+      { pattern: /makemytrip/i, merchant: 'MakeMyTrip' },
     ],
   },
   {
@@ -87,8 +93,21 @@ const CATEGORY_RULES: CategoryRule[] = [
     ],
   },
   {
+    category: 'Salary',
+    keywords: ['salary', 'sal credit', 'payroll'],
+    merchantPatterns: [
+      { pattern: /microsoft/i, merchant: 'Microsoft India' },
+      { pattern: /tcs|tata consultancy/i, merchant: 'TCS' },
+      { pattern: /infosys/i, merchant: 'Infosys' },
+      { pattern: /wipro/i, merchant: 'Wipro' },
+      { pattern: /cognizant/i, merchant: 'Cognizant' },
+      { pattern: /accenture/i, merchant: 'Accenture' },
+      { pattern: /google/i, merchant: 'Google' },
+    ],
+  },
+  {
     category: 'Transfer',
-    keywords: ['neft', 'imps', 'rtgs', 'upi', 'transfer', 'fund transfer', 'self transfer', 'ft-'],
+    keywords: ['imps', 'upi', 'transfer', 'fund transfer', 'self transfer', 'ft-'],
   },
   {
     category: 'ATM Withdrawal',
@@ -103,6 +122,18 @@ const CATEGORY_RULES: CategoryRule[] = [
 class RuleCategorizer implements Categorizer {
   categorize(transaction: RawTransaction): CategorizerResult {
     const description = transaction.description.toLowerCase();
+
+    // Special case: NEFT/RTGS credits from companies are likely salary
+    if (transaction.type === 'credit' && (description.includes('neft') || description.includes('rtgs'))) {
+      const salaryRule = CATEGORY_RULES.find(r => r.category === 'Salary');
+      if (salaryRule?.merchantPatterns) {
+        for (const mp of salaryRule.merchantPatterns) {
+          if (mp.pattern.test(transaction.description)) {
+            return { category: 'Salary', confidence: 0.85, merchant: mp.merchant };
+          }
+        }
+      }
+    }
 
     for (const rule of CATEGORY_RULES) {
       const matched = rule.keywords.some(keyword => description.includes(keyword));

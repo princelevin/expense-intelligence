@@ -21,7 +21,18 @@ For each transaction, provide:
 2. confidence: 0.0 to 1.0
 3. merchant: The recognized merchant/brand name, or "Unknown"
 
-Consider Indian payment patterns: UPI transactions, NEFT/IMPS transfers, POS purchases, and common Indian merchants.
+Key rules:
+- NEFT/RTGS credits from companies (e.g. "MICROSOFT", "TCS", "INFOSYS") are "Salary" — extract company name as merchant
+- UPI debits to food apps (Swiggy, Zomato, hungerbox, etc.) are "Food & Dining"
+- UPI debits to individuals (person names) are "Transfer"
+- Amazon/Flipkart purchases are "Shopping"
+- Zepto, BigBasket, Blinkit, DMart are "Food & Dining" (groceries)
+- MUNCHMAR is a food/snack merchant → "Food & Dining"
+- Decathlon is "Shopping"
+- RedBus is "Transport"
+- Only use "Uncategorized" as a last resort when you truly cannot determine the category
+
+Consider Indian payment patterns: UPI (WDL TFR UPI/DR/...), NEFT (DEP TFR NEFT*...), IMPS, POS purchases.
 
 Respond with ONLY valid JSON: { "results": [{ "category": "...", "confidence": 0.95, "merchant": "..." }] }
 The results array must have exactly the same number of elements as the input transactions, in the same order.`;
