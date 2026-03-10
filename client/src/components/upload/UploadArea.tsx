@@ -119,8 +119,12 @@ export function UploadArea({ onFileSelect, disabled }: UploadAreaProps) {
                 {selectedFile.name}
               </p>
               <p className="text-xs text-gray-500">
-                SBI statements are usually password-protected (your date of birth in DDMMYYYY format)
+                This file is password-protected. Common formats:
               </p>
+              <ul className="text-xs text-gray-400 mt-1 space-y-0.5 list-disc list-inside">
+                <li><strong>SBI:</strong> First 5 letters of name (uppercase) + DOB (DDMMYYYY) — e.g. <code className="bg-gray-100 px-1 rounded">RITES09061975</code></li>
+                <li><strong>HDFC:</strong> Your Customer ID number</li>
+              </ul>
             </div>
           </div>
           <div className="flex gap-2">
