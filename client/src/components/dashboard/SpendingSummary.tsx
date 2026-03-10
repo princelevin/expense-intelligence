@@ -27,12 +27,12 @@ export function SpendingSummary({ totalCredits, totalDebits }: SpendingSummaryPr
         <p className="text-xs text-red-500 mt-1">Total spending & withdrawals</p>
       </div>
       <div className={`border rounded-xl p-5 ${netBalance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
-        <p className={`text-sm font-medium ${netBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Net Balance</p>
+        <p className={`text-sm font-medium ${netBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Net Cash Flow</p>
         <p className={`text-2xl font-bold mt-1 ${netBalance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
           {formatCurrency(netBalance)}
         </p>
         <p className={`text-xs mt-1 ${netBalance >= 0 ? 'text-blue-500' : 'text-orange-500'}`}>
-          Credits minus debits
+          {netBalance >= 0 ? 'More money came in than went out' : 'More money went out than came in'}
         </p>
       </div>
     </div>
