@@ -18,7 +18,8 @@ export function UploadArea({ onFileSelect, disabled }: UploadAreaProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateFile = useCallback((file: File): boolean => {
@@ -39,7 +40,7 @@ export function UploadArea({ onFileSelect, disabled }: UploadAreaProps) {
     if (!validateFile(file)) return;
     if (isExcelFile(file.name)) {
       setSelectedFile(file);
-      setShowPassword(true);
+      setShowPasswordDialog(true);
     } else {
       onFileSelect(file);
     }
@@ -110,7 +111,7 @@ export function UploadArea({ onFileSelect, disabled }: UploadAreaProps) {
           aria-hidden="true"
         />
       </div>
-      {showPassword && selectedFile && (
+      {showPasswordDialog && selectedFile && (
         <div className="mt-6 p-4 bg-white border border-gray-200 rounded-xl">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-lg">🔒</span>
@@ -128,16 +129,27 @@ export function UploadArea({ onFileSelect, disabled }: UploadAreaProps) {
             </div>
           </div>
           <div className="flex gap-2">
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSubmitWithPassword(); }}
-              placeholder="Enter file password"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-              aria-label="File password"
-            />
+            <div className="relative flex-1">
+              <input
+                type={passwordVisible ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSubmitWithPassword(); }}
+                placeholder="Enter file password"
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+                aria-label="File password"
+              />
+              <button
+                type="button"
+                onClick={() => setPasswordVisible(v => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {passwordVisible ? '🙈' : '👁️'}
+              </button>
+            </div>
             <button
               onClick={handleSubmitWithPassword}
               disabled={disabled}
@@ -147,7 +159,7 @@ export function UploadArea({ onFileSelect, disabled }: UploadAreaProps) {
             </button>
           </div>
           <button
-            onClick={() => { setShowPassword(false); setSelectedFile(null); setPassword(''); }}
+            onClick={() => { setShowPasswordDialog(false); setSelectedFile(null); setPassword(''); setPasswordVisible(false); }}
             className="mt-2 text-xs text-gray-400 hover:text-gray-600"
           >
             Choose a different file
