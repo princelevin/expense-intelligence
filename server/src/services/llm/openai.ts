@@ -12,7 +12,8 @@ export interface AzureOpenAIConfig {
   apiVersion?: string | undefined;
 }
 
-const MAX_BATCH_SIZE = 25;
+const MAX_BATCH_SIZE = 50;
+const MAX_CONCURRENT_BATCHES = 3;
 
 const CATEGORIZATION_PROMPT = `You are a financial transaction categorizer for Indian bank statements.
 
@@ -70,23 +71,38 @@ export class OpenAIProvider implements LLMProvider {
       batches.push(transactions.slice(i, i + MAX_BATCH_SIZE));
     }
 
+    logger.info('Starting AI categorization', { transactions: transactions.length, batches: batches.length });
     const allResults: Array<{ category: string; confidence: number; merchant: string }> = [];
 
-    for (const batch of batches) {
-      const input = batch.map((t, i) => `${i + 1}. ${t.date} | ${t.description} | ${t.type} | ${t.amount}`).join('\n');
+    // Process batches concurrently in chunks to maximize throughput
+    for (let c = 0; c < batches.length; c += MAX_CONCURRENT_BATCHES) {
+      const chunk = batches.slice(c, c + MAX_CONCURRENT_BATCHES);
+      const chunkPromises = chunk.map(async (batch) => {
+        const input = batch.map((t, i) => {
+          let desc = t.description;
+          const upiMatch = desc.match(/UPI\/(?:DR|CR)\/\d+\/(.+?)(?:\/[A-Z]{4}\/|$)/);
+          if (upiMatch) desc = `UPI ${upiMatch[1]!.trim()}`;
+          else if (desc.length > 60) desc = desc.slice(0, 60);
+          return `${i + 1}. ${t.date} | ${desc} | ${t.type} | ${t.amount}`;
+        }).join('\n');
 
-      try {
-        const result = await this.callModel(CATEGORIZATION_PROMPT, `Transactions:\n${input}`);
-        const parsed = llmBatchResponseSchema.safeParse(JSON.parse(result));
+        try {
+          const result = await this.callModel(CATEGORIZATION_PROMPT, `Transactions:\n${input}`);
+          const parsed = llmBatchResponseSchema.safeParse(JSON.parse(result));
 
-        if (parsed.success) {
-          allResults.push(...parsed.data.results);
-        } else {
-          allResults.push(...batch.map(() => ({ category: 'Uncategorized', confidence: 0, merchant: 'Unknown' })));
+          if (parsed.success) {
+            return parsed.data.results;
+          }
+          return batch.map(() => ({ category: 'Uncategorized', confidence: 0, merchant: 'Unknown' }));
+        } catch {
+          logger.warn('OpenAI batch failed');
+          return batch.map(() => ({ category: 'Uncategorized', confidence: 0, merchant: 'Unknown' }));
         }
-      } catch {
-        logger.warn('OpenAI batch failed');
-        allResults.push(...batch.map(() => ({ category: 'Uncategorized', confidence: 0, merchant: 'Unknown' })));
+      });
+
+      const chunkResults = await Promise.all(chunkPromises);
+      for (const results of chunkResults) {
+        allResults.push(...results);
       }
     }
 
