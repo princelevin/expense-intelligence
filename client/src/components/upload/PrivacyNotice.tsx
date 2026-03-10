@@ -1,6 +1,6 @@
 export function PrivacyNotice() {
   return (
-    <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg max-w-xl mx-auto">
+    <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg max-w-xl mx-auto">
       <div className="flex items-start gap-2">
         <span className="text-green-600 text-lg">🔒</span>
         <div>

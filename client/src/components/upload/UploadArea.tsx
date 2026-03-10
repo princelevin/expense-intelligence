@@ -80,7 +80,7 @@ export function UploadArea({ onFileSelect, disabled }: UploadAreaProps) {
         role="button"
         tabIndex={0}
         aria-label="Upload bank statement file"
-        className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors
+        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors
           ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'}
           ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         onDrop={disabled ? undefined : handleDrop}

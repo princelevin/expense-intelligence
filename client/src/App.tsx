@@ -31,11 +31,11 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-6">
         {state.status === 'idle' && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <div className="flex flex-col items-center justify-center">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Analyze Your Spending</h2>
-            <p className="text-gray-500 mb-8">Upload your HDFC or SBI bank statement to get started</p>
+            <p className="text-gray-500 mb-6">Upload your HDFC or SBI bank statement to get started</p>
             <UploadArea onFileSelect={upload} />
             <PrivacyNotice />
           </div>
