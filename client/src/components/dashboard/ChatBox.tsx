@@ -2,6 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import type { ChatMessage, AnalysisResult } from '../../types';
 import { sendChatMessage } from '../../services/api';
 
+function formatMessage(text: string) {
+  // Strip markdown bold/italic markers for clean display
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/^#{1,3}\s+/gm, '');
+}
+
 interface ChatBoxProps {
   data: AnalysisResult;
 }
@@ -82,10 +90,10 @@ export function ChatBox({ data }: ChatBoxProps) {
         )}
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${
+            <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
               m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'
             }`}>
-              {m.content}
+              {formatMessage(m.content)}
             </div>
           </div>
         ))}

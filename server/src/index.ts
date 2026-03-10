@@ -168,7 +168,9 @@ Spending Summary:
     prompt += `\n\nRecent Transactions (sample of ${Math.min(30, transactions.length)} out of ${transactions.length}):\n${sampleTxns}`;
   }
 
-  prompt += `\n\nAnswer questions about spending patterns, provide saving tips, and help the user understand their finances. Use ₹ for amounts. Be concise and helpful.`;
+  prompt += `\n\nAnswer questions about spending patterns, provide saving tips, and help the user understand their finances. Use ₹ for amounts. Be concise and helpful.
+
+IMPORTANT: Respond in plain text only. Do NOT use markdown formatting like **bold**, *italic*, or # headings. Use simple dashes (-) for lists and plain text for emphasis.`;
 
   return prompt;
 }
